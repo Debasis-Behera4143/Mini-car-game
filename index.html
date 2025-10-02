@@ -1,112 +1,164 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Drive Mad - Ultimate Edition</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Drive Neon - Racing Challenge</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <div class="game-container">
-        <h1>DRIVE MAD</h1>
-        
-        <div class="score-board">
-            <div class="score-item">
-                <div class="label">Score</div>
-                <div class="value" id="score">0</div>
-            </div>
-            <div class="score-item">
-                <div class="label">Best</div>
-                <div class="value" id="highScore">0</div>
-            </div>
-            <div class="score-item">
-                <div class="label">Streak</div>
-                <div class="value" id="streak">0</div>
-            </div>
-        </div>
+  <!-- Splash / Entry Screen -->
+  <div id="splash" class="splash-screen">
+    <h1>🚀 DRIVE NEON</h1>
+    <p class="subtitle">Futuristic Racing Challenge</p>
+    <button class="btn-primary" onclick="enterMenu()">PLAY NOW</button>
+  </div>
 
-        <div class="canvas-wrapper">
-            <canvas id="gameCanvas" width="400" height="600"></canvas>
-            <div id="powerupNotif" class="powerup-notification hidden"></div>
-        </div>
+  <!-- Game Container -->
+  <div class="game-container hidden" id="gameContainer">
 
-        <div class="game-info">
-            <div class="info-item">
-                <span class="info-label">Speed:</span>
-                <div class="speed-bar">
-                    <div id="speedBar" class="speed-fill"></div>
-                </div>
-                <span id="speedLevel">1.0x</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">Lives:</span>
-                <div id="lives" class="lives-display">
-                    <span class="heart">❤️</span>
-                    <span class="heart">❤️</span>
-                    <span class="heart">❤️</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="controls">
-            <div class="control-key">←</div>
-            <span>Move Left</span>
-            <div class="control-key">→</div>
-            <span>Move Right</span>
-            <div class="control-key">SPACE</div>
-            <span>Restart</span>
-        </div>
-
-        <!-- Menu Screen -->
-        <div id="menu" class="menu">
-            <h2>DRIVE MAD</h2>
-            <p class="subtitle">Ultimate Racing Challenge</p>
-            <div class="menu-features">
-                <div class="feature">🏎️ Fast-Paced Action</div>
-                <div class="feature">⭐ Collect Power-ups</div>
-                <div class="feature">🎯 Beat Your Best Score</div>
-            </div>
-            <button class="btn-primary" onclick="startGame()">START GAME</button>
-            <button class="btn-secondary" onclick="showInstructions()">HOW TO PLAY</button>
-        </div>
-
-        <!-- Instructions -->
-        <div id="instructions" class="menu hidden">
-            <h2>HOW TO PLAY</h2>
-            <div class="instructions-content">
-                <p><strong>🎮 Controls:</strong> Use arrow keys to move left and right</p>
-                <p><strong>🎯 Objective:</strong> Avoid obstacles and survive as long as possible</p>
-                <p><strong>⭐ Coins:</strong> Collect golden coins for bonus points</p>
-                <p><strong>🛡️ Shield:</strong> Blue shields protect you from one hit</p>
-                <p><strong>⚡ Slow-Mo:</strong> Yellow power-ups slow down time</p>
-                <p><strong>💎 Magnet:</strong> Purple magnets attract nearby coins</p>
-            </div>
-            <button class="btn-primary" onclick="hideInstructions()">GOT IT!</button>
-        </div>
-
-        <!-- Game Over Screen -->
-        <div id="gameover" class="gameover hidden">
-            <h2>GAME OVER!</h2>
-            <div class="game-stats">
-                <div class="stat">
-                    <div class="stat-label">Final Score</div>
-                    <div class="stat-value" id="finalScore">0</div>
-                </div>
-                <div class="stat">
-                    <div class="stat-label">Best Streak</div>
-                    <div class="stat-value" id="bestStreak">0</div>
-                </div>
-                <div class="stat">
-                    <div class="stat-label">Coins Collected</div>
-                    <div class="stat-value" id="coinsCollected">0</div>
-                </div>
-            </div>
-            <div id="newHighScore" class="new-high-score hidden">🎉 NEW HIGH SCORE! 🎉</div>
-            <button class="btn-primary" onclick="startGame()">PLAY AGAIN</button>
-            <button class="btn-secondary" onclick="backToMenu()">MAIN MENU</button>
-        </div>
+    <!-- Scoreboard -->
+    <div class="score-board">
+      <div class="score-item">
+        <span>🏆 Score:</span> <strong id="score">0</strong>
+      </div>
+      <div class="score-item">
+        <span>🔥 Best:</span> <strong id="highScore">0</strong>
+      </div>
+      <div class="score-item">
+        <span>⚡ Streak:</span> <strong id="streak">0</strong>
+      </div>
+      <div class="score-item">
+        <span>💰 Coins:</span> <strong id="coinsDisplay">0</strong>
+      </div>
     </div>
 
-    <script src="game.js"></script>
+    <!-- Canvas -->
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="900" height="600"></canvas>
+      <div id="powerupNotif" class="powerup-notification hidden"></div>
+      <div id="speedometer" class="speedometer">
+        <div class="speed-text">SPEED</div>
+        <div class="speed-value" id="speedValue">0</div>
+        <div class="speed-unit">KM/H</div>
+      </div>
+    </div>
+
+    <!-- Info -->
+    <div class="game-info">
+      <div class="info-item">
+        <span>Speed Multiplier:</span> 
+        <span id="speedLevel">1.0x</span>
+      </div>
+      <div class="info-item">
+        <span>❤️ Lives:</span> 
+        <span id="lives">
+          <span class="heart">❤️</span>
+          <span class="heart">❤️</span>
+          <span class="heart">❤️</span>
+        </span>
+      </div>
+      <div class="info-item">
+        <span>Distance:</span>
+        <span id="distance">0m</span>
+      </div>
+    </div>
+
+    <!-- Controls Desktop -->
+    <div class="controls">
+      <span>← → Arrow Keys to Steer | SPACE to Restart</span>
+    </div>
+
+    <!-- Mobile Controls -->
+    <div class="mobile-controls">
+      <button id="btnLeft">⬅️</button>
+      <button id="btnRight">➡️</button>
+    </div>
+
+    <!-- Menu -->
+    <div id="menu" class="menu hidden">
+      <h2>MAIN MENU</h2>
+      <button class="btn-primary" onclick="startGame()">START GAME</button>
+      <button class="btn-secondary" onclick="showInstructions()">HOW TO PLAY</button>
+    </div>
+
+    <!-- Instructions -->
+    <div id="instructions" class="menu hidden">
+      <h2>HOW TO PLAY</h2>
+      <div class="instructions-content">
+        <p>🎮 <strong>Steer:</strong> Use arrow keys or touch buttons</p>
+        <p>⭐ <strong>Coins:</strong> Collect for points and boost streak</p>
+        <p>🛡️ <strong>Shield:</strong> Blocks one collision</p>
+        <p>⚡ <strong>SlowMo:</strong> Slows down obstacles</p>
+        <p>🧲 <strong>Magnet:</strong> Attracts nearby coins</p>
+        <p>🚗 <strong>Speed:</strong> Increases automatically - survive!</p>
+      </div>
+      <button class="btn-primary" onclick="hideInstructions()">GOT IT!</button>
+    </div>
+
+    <!-- Game Over -->
+    <div id="gameover" class="menu hidden">
+      <h2>GAME OVER!</h2>
+      <div class="gameover-stats">
+        <p>🏆 Final Score: <span id="finalScore">0</span></p>
+        <p>🔥 Best Streak: <span id="bestStreak">0</span></p>
+        <p>💰 Coins Collected: <span id="coinsCollected">0</span></p>
+        <p>📏 Distance: <span id="finalDistance">0m</span></p>
+      </div>
+      <div id="newHighScore" class="new-high-score hidden">🎉 NEW HIGH SCORE 🎉</div>
+      <button class="btn-primary" onclick="startGame()">PLAY AGAIN</button>
+      <button class="btn-secondary" onclick="backToMenu()">MAIN MENU</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+  <script>
+    // Splash navigation
+    window.enterMenu = function() {
+      document.getElementById("splash").classList.add("hidden");
+      document.getElementById("gameContainer").classList.remove("hidden");
+      document.getElementById("menu").classList.remove("hidden");
+    };
+
+    // Mobile controls
+    const btnLeft = document.getElementById("btnLeft");
+    const btnRight = document.getElementById("btnRight");
+
+    if (btnLeft && btnRight) {
+      btnLeft.addEventListener("touchstart", e => {
+        e.preventDefault();
+        if (window.game) window.game.keys["ArrowLeft"] = true;
+      });
+      btnLeft.addEventListener("touchend", e => {
+        e.preventDefault();
+        if (window.game) window.game.keys["ArrowLeft"] = false;
+      });
+      btnLeft.addEventListener("mousedown", e => {
+        e.preventDefault();
+        if (window.game) window.game.keys["ArrowLeft"] = true;
+      });
+      btnLeft.addEventListener("mouseup", e => {
+        e.preventDefault();
+        if (window.game) window.game.keys["ArrowLeft"] = false;
+      });
+
+      btnRight.addEventListener("touchstart", e => {
+        e.preventDefault();
+        if (window.game) window.game.keys["ArrowRight"] = true;
+      });
+      btnRight.addEventListener("touchend", e => {
+        e.preventDefault();
+        if (window.game) window.game.keys["ArrowRight"] = false;
+      });
+      btnRight.addEventListener("mousedown", e => {
+        e.preventDefault();
+        if (window.game) window.game.keys["ArrowRight"] = true;
+      });
+      btnRight.addEventListener("mouseup", e => {
+        e.preventDefault();
+        if (window.game) window.game.keys["ArrowRight"] = false;
+      });
+    }
+  </script>
 </body>
 </html>
