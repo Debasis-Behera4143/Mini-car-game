@@ -825,3 +825,296 @@ window.startGame = startGame;
 window.showInstructions = showInstructions;
 window.hideInstructions = hideInstructions;
 window.backToMenu = backToMenu;
+
+// === EXTENSIONS ADDED BELOW (Nitro, Coin Combo, Day–Night Cycle) ===
+
+// Nitro Boost (Shift) variables
+let nitroActive = false;
+let nitroTimer = 0;
+let nitroAvailable = true;
+const NITRO_DURATION = 300;   // frames (~5s at 60fps)
+const NITRO_COOLDOWN = 600;   // frames (~10s cooldown)
+let nitroCooldownTimer = 0;
+
+// Coin Combo variables
+let comboMultiplier = 1;
+let comboTimer = 0;
+const COMBO_DECAY = 180; // 3 seconds in frames
+const MAX_COMBO = 4;
+
+// Day-Night Cycle variables
+let dayTime = 0; // cycles from 0..1
+const DAY_NIGHT_SPEED = 1 / (60 * 60); // full cycle ~60s (60 * 60 frames if 60fps)
+const dayColor = { r: 135, g: 206, b: 235 }; // skyblue
+const nightColor = { r: 8, g: 20, b: 50 };   // dark navy
+
+// Add Nitro key handling
+window.addEventListener('keydown', (e) => {
+  // Support both 'Shift' and 'ShiftLeft'/'ShiftRight' depending on browsers
+  if ((e.key === 'Shift' || e.key === 'ShiftLeft' || e.key === 'ShiftRight') && !nitroActive && nitroAvailable && gameState === 'playing') {
+    activateNitro();
+  }
+});
+
+// Nitro activation
+function activateNitro() {
+  nitroActive = true;
+  nitroAvailable = false;
+  nitroTimer = NITRO_DURATION;
+  nitroCooldownTimer = NITRO_COOLDOWN;
+  game.gameSpeed *= 2; // temporary speed boost
+  showPowerupNotification('🚀 Nitro Boost!');
+  createParticle(game.car.x + game.car.width / 2, game.car.y + game.car.height, '#00ff00', 30);
+}
+
+// Nitro update per-frame (called from new gameLoop)
+function updateNitro() {
+  if (nitroActive) {
+    nitroTimer--;
+    // Add visual trailing particles during nitro
+    if (Math.random() > 0.6) {
+      createParticle(game.car.x + game.car.width / 2 + (Math.random() - 0.5) * 8, game.car.y + game.car.height, '#aaffaa', 6);
+    }
+    if (nitroTimer <= 0) {
+      nitroActive = false;
+      game.gameSpeed = Math.max(4, game.gameSpeed / 2); // revert (base will recalc soon)
+      showPowerupNotification('Nitro Over!');
+    }
+  } else {
+    if (nitroCooldownTimer > 0) {
+      nitroCooldownTimer--;
+      if (nitroCooldownTimer <= 0) {
+        nitroAvailable = true;
+        showPowerupNotification('Nitro Ready!');
+      }
+    }
+  }
+}
+
+// Store original updateCoins in case something else uses it
+const _originalUpdateCoins = updateCoins.bind(window);
+
+// Replace updateCoins with combo-enabled version (monkey-patch)
+function updateCoinsWithCombo() {
+  const effectiveSpeed = game.slowMo ? game.gameSpeed * 0.5 : game.gameSpeed;
+  
+  game.coins = game.coins.filter(coin => {
+    coin.y += effectiveSpeed;
+    coin.angle += 0.1;
+    
+    // Magnet effect
+    if (game.magnet) {
+      const dx = (game.car.x + game.car.width / 2) - coin.x;
+      const dy = (game.car.y + game.car.height / 2) - coin.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist < 150) {
+        coin.x += dx * 0.1;
+        coin.y += dy * 0.1;
+      }
+    }
+    
+    // Check collection
+    const dx = coin.x - (game.car.x + game.car.width / 2);
+    const dy = coin.y - (game.car.y + game.car.height / 2);
+    const distanceCheck = Math.sqrt(dx * dx + dy * dy);
+    
+    if (distanceCheck < coin.radius + game.car.width / 3) {
+      // Apply combo multiplier to coin value
+      const appliedMultiplier = comboMultiplier;
+      score += coin.value * appliedMultiplier;
+      coinsCollected++;
+      streak += 2;
+      if (streak > bestStreak) bestStreak = streak;
+      scoreEl.textContent = score;
+      streakEl.textContent = streak;
+      coinsDisplayEl.textContent = coinsCollected;
+      createParticle(coin.x, coin.y, '#ffd700', 12);
+      
+      // Update combo
+      if (comboMultiplier < MAX_COMBO) comboMultiplier++;
+      comboTimer = COMBO_DECAY;
+      showPowerupNotification(`💎 Combo x${comboMultiplier - 1}`);
+      
+      return false;
+    }
+    
+    return coin.y < canvas.height + 50;
+  });
+}
+
+// Replace the global updateCoins reference with our combo version
+updateCoins = updateCoinsWithCombo;
+
+// Day-night helper: interpolate colors
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+function getSkyColor(t) {
+  // t is 0..1. Use a smooth sinusoidal mapping for pleasant transition
+  const eased = (Math.sin((t * Math.PI * 2) - Math.PI / 2) + 1) / 2; // 0..1
+  const r = Math.round(lerp(dayColor.r, nightColor.r, eased));
+  const g = Math.round(lerp(dayColor.g, nightColor.g, eased));
+  const b = Math.round(lerp(dayColor.b, nightColor.b, eased));
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+// We'll replace the existing gameLoop function with an enhanced one that adds
+// day-night background and nitro updating. We keep the original logic but
+// call it inside (mostly copied) — safe because we append only.
+gameLoop = function enhancedGameLoop() {
+  if (gameState !== 'playing') return;
+  
+  // Clear canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // Apply screen shake
+  if (game.shake > 0) {
+    ctx.save();
+    ctx.translate(
+      Math.random() * game.shake - game.shake / 2,
+      Math.random() * game.shake - game.shake / 2
+    );
+    game.shake *= 0.9;
+    if (game.shake < 0.5) game.shake = 0;
+  }
+  
+  // Day-Night: compute sky color and draw as destination-over later so it sits behind everything.
+  // We'll first draw scene normally, then draw sky behind using destination-over.
+  // To do that, draw scene, then set composite to destination-over and draw sky rect.
+  
+  // Draw background placeholder (kept similar to original; will be visually affected by destination-over sky)
+  ctx.fillStyle = '#0a2a0a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Draw trees
+  drawTrees();
+  
+  // Draw road
+  drawRoad();
+  
+  // Update and draw game objects
+  updateCar();
+  updateObstacles();
+  updateCoins();
+  updatePowerups();
+  updateTrees();
+  updateParticles();
+  
+  // Nitro update - must run every frame
+  updateNitro();
+  
+  // Combo timer update
+  if (comboTimer > 0) {
+    comboTimer--;
+    if (comboTimer <= 0) {
+      comboMultiplier = 1;
+      showPowerupNotification('Combo Lost');
+    }
+  }
+  
+  // Draw particles and objects
+  drawParticles();
+  game.obstacles.forEach(drawObstacle);
+  game.coins.forEach(drawCoin);
+  game.powerups.forEach(drawPowerup);
+  drawCar();
+  
+  if (game.shake > 0) ctx.restore();
+  
+  // Spawn objects
+  game.obstacleTimer++;
+  game.coinTimer++;
+  game.powerupTimer++;
+  game.treeTimer++;
+  
+  const spawnRate = Math.max(30, 80 - Math.floor(score / 100));
+  
+  if (game.obstacleTimer > spawnRate) {
+    createObstacle();
+    game.obstacleTimer = 0;
+  }
+  
+  if (game.coinTimer > 60) {
+    if (Math.random() > 0.5) createCoin();
+    game.coinTimer = 0;
+  }
+  
+  if (game.powerupTimer > 400) {
+    if (Math.random() > 0.7) createPowerup();
+    game.powerupTimer = 0;
+  }
+  
+  if (game.treeTimer > 40) {
+    createTree();
+    game.treeTimer = 0;
+  }
+  
+  // Update powerup timers
+  if (game.shieldTimer > 0) {
+    game.shieldTimer--;
+    if (game.shieldTimer === 0) game.shield = false;
+  }
+  
+  if (game.slowMoTimer > 0) {
+    game.slowMoTimer--;
+    if (game.slowMoTimer === 0) game.slowMo = false;
+  }
+  
+  if (game.magnetTimer > 0) {
+    game.magnetTimer--;
+    if (game.magnetTimer === 0) game.magnet = false;
+  }
+  
+  // Increase game speed gradually
+  game.baseSpeed = 4 + score / 200;
+  // If nitro active we already doubled game.gameSpeed in activateNitro; ensure base influences it properly:
+  if (!nitroActive) {
+    game.gameSpeed = game.baseSpeed;
+  } else {
+    // when nitro is active, keep the increased speed (we set it on activation)
+    // but cap it relative to base so it doesn't grow unbounded
+    game.gameSpeed = Math.max(game.gameSpeed, game.baseSpeed * 2);
+  }
+  
+  // Update UI
+  const speedMultiplier = (game.gameSpeed / 4).toFixed(1);
+  speedLevelEl.textContent = speedMultiplier + 'x';
+  
+  const speedKmh = Math.floor(80 + game.gameSpeed * 10);
+  speedValueEl.textContent = speedKmh;
+  
+  distance += game.gameSpeed * 0.1;
+  distanceEl.textContent = Math.floor(distance) + 'm';
+  
+  // After drawing everything, render a sky rectangle behind using destination-over so it appears as background.
+  // Compute day-night parameter
+  dayTime += DAY_NIGHT_SPEED;
+  if (dayTime > 1) dayTime -= 1;
+  const sky = getSkyColor(dayTime);
+  
+  // Draw sky behind current canvas content
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-over';
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
+  
+  // Also optionally draw a subtle overlay for night (stars) when night is mostly dark
+  // We'll draw tiny stars when eased level > 0.85 (almost night)
+  const eased = (Math.sin((dayTime * Math.PI * 2) - Math.PI / 2) + 1) / 2;
+  if (eased > 0.85) {
+    const starChance = (eased - 0.85) * 4; // 0..0.6 scale to density
+    for (let i = 0; i < 6; i++) {
+      if (Math.random() < starChance * 0.02) {
+        const sx = Math.random() * canvas.width;
+        const sy = Math.random() * (canvas.height * 0.5);
+        ctx.fillStyle = 'rgba(255,255,255,' + (Math.random() * 0.8 + 0.2) + ')';
+        ctx.fillRect(sx, sy, Math.random() * 2 + 0.5, Math.random() * 2 + 0.5);
+      }
+    }
+  }
+  
+  // Finally schedule next frame
+  game.animationId = requestAnimationFrame(gameLoop);
+};
